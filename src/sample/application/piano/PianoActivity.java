@@ -2,13 +2,19 @@ package sample.application.piano;
 
 import java.util.Timer;
 
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.app.Activity;
+import android.content.Context;
+import android.content.res.Resources;
+import android.content.res.TypedArray;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Path;
 import android.graphics.Path.Direction;
 import android.graphics.Region;
 import android.graphics.drawable.Drawable;
+import android.view.Display;
 import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
@@ -31,7 +37,31 @@ public class PianoActivity extends Activity implements OnTouchListener{
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_piano);
+
+        TypedArray notes = getResources().obtainTypedArray(R.array.notes);
+        for (int i = 0; i < notes.length(); i ++){
+        	int k = notes.getResourceId(i, -1);
+        	if (k != -1){
+        		key[i] = MediaPlayer.create(this, k);
+        	} else key[i] = null;
+        }
+
+        Resources res = getResources();
+        drawable_white = res.getDrawable(R.drawable.white);
+        drawable_black = res.getDrawable(R.drawable.black);
+        drawable_white_pressed = res.getDrawable(R.drawable.white_pressed);
+        drawable_black_pressed = res.getDrawable(R.drawable.black_pressed);
+
+        Display disp = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+        sw = disp.getWidth();
+        sh = disp.getHeight();
+
+        makeRegions();
+        for (int i = 0; i < numKeys; i ++) activePointers[i] = -1;
+        iv = (ImageView) findViewById(R.id.imageView1);
+        iv.setOnTouchListener(this);
     }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -127,4 +157,30 @@ public class PianoActivity extends Activity implements OnTouchListener{
 		}
 
 }
+
+	Bitmap drawKeys(){
+		Bitmap bm = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
+		Canvas canvas = new Canvas(bm);
+
+		for (int i = 0; i < numWk; i ++){
+			if (key[i].isPlaying()){
+				drawable_white_pressed.setBounds(kb[i].getBounds());
+				drawable_white_pressed.draw(canvas);
+			} else {
+					drawable_white.setBounds(kb[i].getBounds());
+					drawable_white.draw(canvas);
+			}
+		}
+
+		for (int i = numWk; i < numKeys; i ++){
+			if (key[i].isPlaying()){
+				drawable_black_pressed.setBounds(kb[i].getBounds());
+				drawable_black_pressed.draw(canvas);
+			} else {
+					drawable_black.setBounds(kb[i].getBounds());
+					drawable_black.draw(canvas);
+			}
+		}
+		return bm;
+	}
 }
