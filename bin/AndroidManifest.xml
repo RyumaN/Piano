@@ -13,7 +13,7 @@
         android:theme="@style/AppTheme" >
         <activity
             android:name=".PianoActivity"
-            android:label="@string/title_activity_piano" >
+            android:label="@string/title_activity_piano" android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

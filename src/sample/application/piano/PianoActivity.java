@@ -1,6 +1,8 @@
 package sample.application.piano;
 
+import java.util.Arrays;
 import java.util.Timer;
+import java.util.TimerTask;
 
 import android.media.MediaPlayer;
 import android.os.Bundle;
@@ -25,6 +27,7 @@ public class PianoActivity extends Activity implements OnTouchListener{
 
 	static final int numWk = 11, numBk = 7, numKeys = numWk + numBk;
 	Region[] kb = new Region[numKeys];
+	MediaPlayer[] key = new MediaPlayer[numKeys];
 	int sw, sh;
 	int[] activePointers = new int[numKeys];
 	Drawable drawable_white, drawable_black, drawable_white_pressed, drawable_black_pressed;
@@ -42,8 +45,8 @@ public class PianoActivity extends Activity implements OnTouchListener{
         for (int i = 0; i < notes.length(); i ++){
         	int k = notes.getResourceId(i, -1);
         	if (k != -1){
-        		key[i] = MediaPlayer.create(this, k);
-        	} else key[i] = null;
+        		this.key[i] = MediaPlayer.create(this, k);
+        	} else this.key[i] = null;
         }
 
         Resources res = getResources();
@@ -53,13 +56,13 @@ public class PianoActivity extends Activity implements OnTouchListener{
         drawable_black_pressed = res.getDrawable(R.drawable.black_pressed);
 
         Display disp = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
-        sw = disp.getWidth();
-        sh = disp.getHeight();
+        this.sw = disp.getWidth();
+        this.sh = disp.getHeight();
 
         makeRegions();
-        for (int i = 0; i < numKeys; i ++) activePointers[i] = -1;
-        iv = (ImageView) findViewById(R.id.imageView1);
-        iv.setOnTouchListener(this);
+        for (int i = 0; i < numKeys; i ++) this.activePointers[i] = -1;
+        this.iv = (ImageView) findViewById(R.id.imageView1);
+        this.iv.setOnTouchListener(this);
     }
 
 
@@ -70,20 +73,86 @@ public class PianoActivity extends Activity implements OnTouchListener{
     }
 
 	public boolean onTouch(View v, MotionEvent event) {
+		int pointerIndex = event.getAction();
+		float x = event.getX(pointerIndex);
+		float y = event.getY(pointerIndex);
 
-		return false;
+		for (int j = 0; j < numKeys; j ++){
+			if (kb[j].contains((int) x, (int) y)){
+
+				switch(event.getActionMasked()){
+
+				//タッチしたときの処理
+				case MotionEvent.ACTION_DOWN:
+				case MotionEvent.ACTION_POINTER_DOWN:
+
+				playNote(key[j]);
+				this.activePointers[pointerIndex] = j;
+				break;
+
+				//離した時の処理
+				case MotionEvent.ACTION_UP:
+				case MotionEvent.ACTION_POINTER_UP:
+				stopNote(key[j]);
+				activePointers[pointerIndex] = - 1;
+				break;
+
+				//ドラッグしたときの処理
+				case MotionEvent.ACTION_MOVE:
+				if (activePointers[pointerIndex] != j){
+					if (activePointers[pointerIndex] != - 1)
+						stopNote(key[activePointers[pointerIndex]]);
+					playNote(key[j]);
+					activePointers[pointerIndex] = j;
+				}
+			}
+			break;
+		}
+	}
+		return true;
 	}
 
 	@Override
 	protected void onPause() {
-		// TODO 自動生成されたメソッド・スタブ
+
 		super.onPause();
+		timer.cancel();
 	}
 
 	@Override
 	protected void onResume() {
-		// TODO 自動生成されたメソッド・スタブ
+
 		super.onResume();
+		timer = new Timer();
+		timer.schedule(new TimerTask(){
+
+			@Override
+			public void run(){
+
+				//各MediaPlayerオブジェクトの再生状態を取得
+				boolean[] playingNotes = new boolean[numKeys];
+				for (int i = 0; i < playingNotes.length; i ++){
+					playingNotes[i] = key[i].isPlaying();
+
+					//前回実行時とは再生状態が変わった場合のみ画面書き換えを実行
+					if (!Arrays.equals(playingNotes, lastPlayingNotes)){
+						bitmap_keyboard = drawKeys();
+
+						//UIスレッドでImageViewに画像をセット
+						runOnUiThread(new Runnable(){
+
+							public void run(){
+								iv.setImageBitmap(bitmap_keyboard);
+							}
+						});
+					}
+
+					//再生状態を変数に保存
+					lastPlayingNotes = playingNotes;
+				}
+			}, 0, 100);
+
+
 	}
 
 	void makeRegions(){
@@ -145,11 +214,11 @@ public class PianoActivity extends Activity implements OnTouchListener{
 			}
 
 		int j = this.numWk;
-		for (int i = numWk; i < kt.length; i ++){
+		for (int i = this.numWk; i < kt.length; i ++){
 			if (kt[i] != -1){
 				this.kb[j] = new Region();
 				Path pathtmp = new Path();
-				pathtmp.addPath(path[kt[i]], (i - numWk + 1) * kw - (bkw / 2), 0);
+				pathtmp.addPath(path[kt[i]], (i - this.numWk + 1) * kw - (bkw / 2), 0);
 				this.kb[j].setPath(pathtmp, region);
 				j = j + 1;
 
@@ -162,8 +231,8 @@ public class PianoActivity extends Activity implements OnTouchListener{
 		Bitmap bm = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888);
 		Canvas canvas = new Canvas(bm);
 
-		for (int i = 0; i < numWk; i ++){
-			if (key[i].isPlaying()){
+		for (int i = 0; i < this.numWk; i ++){
+			if (this.key[i].isPlaying()){
 				drawable_white_pressed.setBounds(kb[i].getBounds());
 				drawable_white_pressed.draw(canvas);
 			} else {
@@ -172,8 +241,8 @@ public class PianoActivity extends Activity implements OnTouchListener{
 			}
 		}
 
-		for (int i = numWk; i < numKeys; i ++){
-			if (key[i].isPlaying()){
+		for (int i = this.numWk; i < this.numKeys; i ++){
+			if (this.key[i].isPlaying()){
 				drawable_black_pressed.setBounds(kb[i].getBounds());
 				drawable_black_pressed.draw(canvas);
 			} else {
@@ -182,5 +251,14 @@ public class PianoActivity extends Activity implements OnTouchListener{
 			}
 		}
 		return bm;
+	}
+
+	private void playNote(MediaPlayer mp){
+		mp.seekTo(0);
+		mp.start();
+	}
+
+	private void stopNote(MediaPlayer mp){
+		mp.pause();
 	}
 }
